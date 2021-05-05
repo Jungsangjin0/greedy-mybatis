@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.kh.section01.xmlmapper.ElementTestMapper">
+	
+	<!-- Mapper xml에서 사용할 수 있는 앨리먼트 9가지 -->
+	<!-- <cache>, <cache-ref>, <resultMap>, <parameterMap>, <sql> -->
+	<!-- <select>, <insert>, <update>, <delete> -->
+	
+	<!-- 1. <cache> 앨리먼트 -->
+	<!-- 
+		cache와 cache-ref 앨리먼트는 캐시를 설정하는 앨리먼트이다.
+		cache는 현재 네임스페이스에 대한 캐시 설정이고, cache-ref는 다른 네임스페이스에 대한 캐시 설정 참조를 할 때 사용한다.
+		캐시란?
+		컴퓨터 과학에서 데이터나 값을 미리 복사해놓은 임시 장소를 가리킨다.
+		캐시 접근 시간에 비해 원래 데이터를 접근하는 시간이 오래 걸리는 경우나, 값을 다시 계산하는 시간을 절약하기 위해 사용한다.
+		캐시에 데이터를 미리 복사해 놓으면 계산이나 접근 시간 없이 더 빠른 속도로 데이터에 접근할 수 있다.
+	 -->
+	
+	<cache eviction="LRU" flushInterval="1000" size="512" readOnly="true"/>
+	
+	<!-- 
+		디폴트 설정값
+		1. 매퍼 xml의 모든 select 구문의 결과를 캐시한다.
+		2. 매퍼 xml의 insert, update, delete는 모두 캐시를 지운다.
+		3. 가장 오랫동안 사용하지 않은 캐시를 지우는 알고리즘(LRU - Least Recently Used)을 사용한다.
+		4. 애플리케이션이 실행되는동안 캐시를 유지한다. 특정 시점에 사라지거나 하지 않는다.
+		5. 캐시는 최대 1024개 까지 저장한다.
+		6. 캐시는 읽기/쓰기 모두 가능하다.
+	 -->
+	 
+	<select id="selectCacheTest" resultType="java.lang.String">
+        SELECT
+               A.MENU_NAME
+          FROM TBL_MENU A
+	</select>
+	
+	
+	<!-- 2. <resultMap> 앨리먼트 -->
+	<!-- 
+		데이터베이스 결과 데이터를 객체레 로드하는 방법을 정의하는 앨리먼트이다.
+		resultMap앨리먼트는 마이바티스에서 가장 중요하고 강력한 앨리먼트이다.
+		resultSet에서 데이터를 가져올 때 작성되는 JDBC코드의 대부분을 줄여주는 역할을 담당한다.
+		
+		resultMap 앨리먼트는 4가지 속성을 설정할 수 있다.
+		1. id : 매핑 구문에서 결과 매핑을 사용할 때 구분하기 위한 아이다.
+		2. type : 결과 매핑을 적용하는 대상 객체 타입(매핑 구문의 결과 데이터를 저장할 자바 타입을 지정함)
+		3. extends : 자바의 상속처럼 기존에 정의된 매핑 결과를 상속받아 추가적인 매핑 정보로 확장할 때 사용한다. (부모 resultMap 아이디 사용)
+		4. autoMapping : 결과 매핑을 자동 매핑할 것인지를 설정한다. 
+	 -->
+	
+	<resultMap id="menuResultMap1" type="com.kh.common.MenuDTO" autoMapping="false">
+		<id property="code" column="MENU_CODE"/>
+		<result property="name" column="MENU_NAME"/>
+		<result property="price" column="MENU_PRICE"/>
+		<result property="categoryCode" column="CATEGORY_CODE"/>
+	</resultMap>
+	<resultMap id="menuResultMap2" type="com.kh.common.MenuDTO" extends="menuResultMap1">
+		<!-- 추가적인 속성만 넣으면 된다. -->
+		<result property="orderableStatus" column="ORDERABLE_STATUS"/>
+	</resultMap>
+	
+	<select id="selectResultMapTest" resultMap="menuResultMap2">
+        SELECT
+               A.MENU_CODE
+             , A.MENU_NAME
+             , A.MENU_PRICE
+             , A.CATEGORY_CODE
+             , A.ORDERABLE_STATUS
+          FROM TBL_MENU A
+         WHERE A.ORDERABLE_STATUS = 'Y'
+	</select>
+	
+	<!-- 2-1-1. <constructor> -->
+	<resultMap id="menuResultMap3" type="com.kh.common.MenuDTO">
+		<constructor>
+			<idArg column="MENU_CODE" javaType="_int"/>
+			<arg column="MENU_NAME" javaType="string"/>
+			<arg column="MENU_PRICE" javaType="_int"/>
+			<arg column="CATEGORY_CODE" javaType="_int"/>
+			<arg column="ORDERABLE_STATUS" javaType="string"/>
+		</constructor>
+	</resultMap>
+	
+	<select id="selectResultMapConstructorTest" resultMap="menuResultMap3">
+		SELECT
+		       A.MENU_CODE
+		     , A.MENU_NAME
+		     , A.MENU_PRICE
+		     , A.CATEGORY_CODE
+		     , A.ORDERABLE_STATUS
+		 FROM TBL_MENU A
+		WHERE A.ORDERABLE_STATUS = 'Y'
+	</select>
+	
+	<!-- 2-1.2. <association> -->
+	
+	<!-- 따로 만든 resultMap을 사용하는 방법 -->
+	<!-- <resultMap id="menuAndCategoryResultMap" type="com.kh.common.MenuAndCategoryDTO">
+		<id property="code" column="MENU_CODE"/>
+		<result property="name" column="MENU_NAME"/>
+		<result property="price" column="MENU_PRICE"/>
+		<result property="orderableStatus" column="ORDERABLE_STATUS"/>
+		<association property="category" resultMap="categoryResultMap"/>
+	</resultMap>
+	<resultMap id="categoryResultMap" type="com.kh.common.CategoryDTO">
+		<id property="code" column="CATEGORY_CODE"/>
+		<result property="name" column="CATEGORY_NAME"/>
+		<result property="refCategoryCode" column="REF_CATEGORY_CODE"/>
+	</resultMap> -->
+	
+	<!-- 한 번의 정의로 resultMap을 구성하는 방법 -->
+	<resultMap id="menuAndCategoryResultMap" type="com.kh.common.MenuAndCategoryDTO">
+		<id property="code" column="MENU_CODE"/>
+		<result property="name" column="MENU_NAME"/>
+		<result property="price" column="MENU_PRICE"/>
+		<result property="orderableStatus" column="ORDERABLE_STATUS"/>
+		<association property="category" javaType="com.kh.common.CategoryDTO">
+			<id property="code" column="CATEGORY_CODE"/>
+			<result property="name" column="CATEGORY_NAME"/>
+			<result property="refCategoryCode" column="REF_CATEGORY_CODE"/>
+		</association>
+	</resultMap>
+	
+	<select id="selectResultMapAssociationTest" resultMap="menuAndCategoryResultMap">
+        SELECT
+               A.MENU_CODE
+             , A.MENU_NAME
+             , A.MENU_PRICE
+             , B.CATEGORY_CODE
+             , B.CATEGORY_NAME
+             , B.REF_CATEGORY_CODE
+             , A.ORDERABLE_STATUS
+         FROM TBL_MENU A
+         JOIN TBL_CATEGORY B ON (A.CATEGORY_CODE = B.CATEGORY_CODE)
+        WHERE A.ORDERABLE_STATUS = 'Y'
+	</select>
+	
+	<!-- 2-1-3. <collection> -->
+	
+	<!-- 따로 만든 resultMap 사용하는 방법 -->
+	<resultMap id="categoryAndMenuResultMap" type="com.kh.common.CategoryAndMenuDTO">
+		<id property="code" column="CATEGORY_CODE"/>
+		<result property="name" column="CATEGORY_NAME"/>
+		<result property="refCategoryCode" column="REF_CATEGORY_CODE"/>
+		<collection property="menuList" resultMap="menuResultMap"/>
+	</resultMap>
+	<resultMap id="menuResultMap" type="com.kh.common.MenuDTO">
+		<id property="code" column="MENU_CODE"/>
+		<result property="name" column="MENU_NAME"/>
+		<result property="price" column="MENU_PRICE"/>
+		<result property="categoryCode" column="CATEGORY_CODE"/>
+		<result property="orderableStatus" column="ORDERABLE_STATUS"/>
+	</resultMap>
+	
+	<select id="selectResultMapCollectionTest" resultMap="categoryAndMenuResultMap">
+        SELECT
+               A.CATEGORY_CODE
+             , A.CATEGORY_NAME
+             , A.REF_CATEGORY_CODE
+             , B.MENU_CODE
+             , B.MENU_NAME
+             , B.MENU_PRICE
+             , B.CATEGORY_CODE
+             , B.ORDERABLE_STATUS
+          FROM TBL_CATEGORY A
+          LEFT JOIN TBL_MENU B ON (A.CATEGORY_CODE = B.CATEGORY_CODE)
+         ORDER BY A.CATEGORY_CODE
+	</select>
+	
+	<!-- 2-1-4. <discriminator> 앨리먼트 -->
+	<!-- 
+		마이바티스 설정에서는 resultMap 혹은 resultType 매핑 한 개만 선택할 수 있다.
+		즉, 매핑 구문 아이디 별 결과 매핑은 고정되어 있는 상태이다.
+		하지만 개발하다 보면 매핑 구문은 동일하지만 동적으로 결과를 매핑해야 하는 상황이 생길 수 있다.
+		이러한 경우 discriminator 앨리먼트를 이용하면 매핑 과정에서 동적으로 결과를 매핑해주는 기능을 제공한다. 
+		
+		하지만 상속관계에 있는 클래스를 동적으로 처리할 때 사용하며 활용도에 비해 난이도가 높아서 생략한다.
+	 -->
+	
+	<!-- 3. <sql> 앨리먼트 -->
+	<!-- 각 매핑 구문에서 공통으로 사용할 수 있는 sql 문자열 일부를 정의하고 재사용하기 위해서 사용한다. -->
+	<sql id="columns">
+               MENU_CODE
+             , MENU_NAME
+             , MENU_PRICE
+             , CATEGORY_CODE
+             , ORDERABLE_STATUS
+	</sql>
+	
+	<select id="selectSqlTest" resultMap="menuResultMap2">
+        SELECT
+        <include refid="columns"/>
+          FROM TBL_MENU A
+         WHERE A.ORDERABLE_STATUS = 'Y'
+	</select>
+	
+	<!-- 4. <insert> 앨리먼트 -->
+	<!-- 
+		insert, update, delete 앨리먼트는 사용하는 속성이 대부분 동일하지만 insert 앨리먼트는 좀 더 많은 속성을 정의할 수 있다.
+		
+		공통 속성
+		id : 매핑 구문을 구분하는 아이디이다.
+		parameterType : 파라미터 타입을 지정한다. 이미 정의된 별칭을 사용할 수 있거나 클래스의 full-name을 적어주어야 한다.
+		flushCache : 매핑 구문을 실행할 때 캐시를 지울지 여부를 설정한다.
+		timeout : sql을 실행한 후 응답을 기다리는 최대 시간이다. 대게는 설정하지 않고 JDBC 드라이버 자체의 타임아웃 값을 그대로 사용한다.
+		statementType : JDBC 구문 타입을 지정한다. STATEMENT, PREPARED, CALLABLE 중 하나를 쓸 수 있으며 기본값은 PREPARED 이다.
+		
+		insert 추가 속성
+		useGeneraterKeys : 생성 키 값을 만들기 위해 JDBC의 getGeneraterKeys메소드를 호출할 것인지를 결정하며 기본값은 false이다.
+		keyProperty : insert 구문의 하위 엘리먼트인 selectKey 앨리먼트에 의한 반환값을 설정할 프로퍼티를 지정
+		keyColumn : 생성 키를 가진 테이블의 컬럼명을 설정한다. (키 컬럼이 테이블의 첫 번째 행이 아닌 데이터베이스에서만 필요하다. - postgreSQL 제외)
+	 -->
+	
+	<insert id="insertMenuTest" parameterType="com.kh.common.MenuDTO">
+        INSERT 
+          INTO TBL_MENU A
+        (
+          A.MENU_CODE
+        , A.MENU_NAME
+        , A.MENU_PRICE
+        , A.CATEGORY_CODE
+        , A.ORDERABLE_STATUS
+        )
+        VALUES
+        (
+          SEQ_MENU_CODE.NEXTVAL
+        , #{ name }
+        , #{ price }
+        , #{ categoryCode }
+        , #{ orderableStatus } 
+        )
+	</insert>
+	
+	<insert id="insertNewCategory" parameterType="com.kh.common.MenuAndCategoryDTO">
+        INSERT
+          INTO TBL_CATEGORY A
+        (
+          A.CATEGORY_CODE
+        , A.CATEGORY_NAME
+        , A.REF_CATEGORY_CODE
+        )
+        VALUES
+        (
+          SEQ_CATEGORY_CODE.NEXTVAL
+        , #{ category.name }
+        , null
+        )
+	</insert>
+	
+	<insert id="insertNewMenu" parameterType="com.kh.common.MenuAndCategoryDTO">
+		<selectKey keyProperty="category.code" order="BEFORE" resultType="_int">
+            SELECT
+                   SEQ_CATEGORY_CODE.CURRVAL
+              FROM DUAL
+		</selectKey>
+		INSERT
+		  INTO TBL_MENU A
+		(
+		  A.MENU_CODE
+		, A.MENU_NAME
+		, A.MENU_PRICE
+		, A.CATEGORY_CODE
+		, A.ORDERABLE_STATUS
+		)
+		VALUES
+		(
+		  SEQ_MENU_CODE.NEXTVAL
+		, #{ name }
+		, #{ price }
+		, #{ category.code }
+		, #{ orderableStatus }
+		)
+	</insert>
+	
+	<!-- 5. <select> 앨리먼트 -->
+	<!-- 
+		자주 사용되는 속성
+		id : 매핑 구문을 구분하는 아이디이다.
+		parameterType : 파라미터의 타입을 의미한다. 이미 정의된 타입을 사용할 수 있으며, 개발자가 정의한 타입을 사용하는 경우 full-name을 기술한다.
+		resultType : 매핑 구분의 결과 행 타입이다. 전체 결과의 타입을 지정하는 것이 아닌 1 row에 해당하는 타입을 설정해야 한다.
+		resultMap : 매핑 구문의 결과 행을 미리 선언한 resultMap을 이용한다는 의미이다. 전체 행이 아닌 1 row에 해당하는 resultMap을 지정한다.
+		
+		자주 사용되지 않는 속성
+		flushCache : 구문을 호출할 때마다 캐시를 지울지 여부를 설정한다.
+		useCache : 구문의 결과를 캐시한다. 기본값 true
+		timeout : 구문을 실행하고 응답을 기다리는 최대 시간이다. 대게는 설정하지 않고 JDBC 드라이버의 타임아웃 값을 그대로 사용한다.
+		fetchSize : 지정된 수 만큼의 결과를 반환하게 하는 드라이버 힌트 형태의 값이다. 디폴트는 설정하지 않는 것이며 일부 드라이버는 지원하지 않는다.
+		statementType : JDBC의 구문 타입을 지정한다. STATEMENT, PREPARED, CALLABLE 중 하나이며 디폴트는 PREPARED이다.
+		resultSetType : ResultSet의 커서 이동 방향을 의미한다. FORWARD_ONLY, SCROLL_SENSITIVE, SCROLL_INSENSITIVE 중 하나를 설정한다.
+		                              기본값은 FORWARD_ONLY 이며, 커서가 앞으로만 이동한다.
+		                SCROLL_SENSITIVE는 커서가 앞뒤로 이동할 수 있고, ResultSet 객체 생성 후 추가 및 삭제된 데이터도 볼 수 있다.
+		                SCROLL_INSENSITIVE는 커서가 앞뒤로 이동할 수 있지만 ResultSet 객체 생성 후 추가 및 삭제된 데이터는 볼 수 없다.
+	 -->
+</mapper>
+
+
+
+
+
+
+

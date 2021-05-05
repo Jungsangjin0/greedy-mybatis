@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.kh.section01.xml.DynamicSqlMapper">
+	
+	<resultMap type="com.kh.common.MenuDTO" id="menuResultMap">
+		<id property="code" column="MENU_CODE"/>
+		<result property="name" column="MENU_NAME"/>
+		<result property="price" column="MENU_PRICE"/>
+		<result property="categoryCode" column="CATEGORY_CODE"/>
+		<result property="orderableStatus" column="ORDERABLE_STATUS"/>
+	</resultMap>
+	
+	<select id="selectMenuByPrice" parameterType="hashmap" resultMap="menuResultMap">
+		select
+			   A.menu_code
+			,  A.menu_name
+			,  A.menu_price
+			,  A.category_code
+			,  A.orderable_status
+			from tbl_menu A
+			where A.orderable_status = 'Y'
+			<!-- 문자열은 ognl 이라는 표현식을 사용 자동으로 getter 또는 get 메소드로 가져옴-->
+			<!-- ognl은 꺽새를 사용할 수 없기 때문에 gte -> great than equal -> >=(보다 큰) -->
+			<!--  lte less than equal -> <=(보다 작은) -->
+		<if test="price gte 0 and price lte 10000">
+		<!-- 태그 시작으로 인식함 -->
+		<![CDATA[
+			AND A.menu_price < #{price}
+		]]>
+		</if>
+		<if test="price gt 10000 and price lte 20000">
+		<!-- 만원이상 검색할 경우 10000 < price <= 20000 -->
+			AND A.menu_price between 10000 and #{price}
+		</if>
+		<if test="price gt 20000 and price lte 30000">
+			and A.menu_price between 20000 and #{price}
+		</if>
+		<if test="price gt 30000">
+			and A.menu_price between 30000 and #{price}
+		</if>
+		order by A.menu_code
+	</select>
+	
+	
+	<select id="searchMenu" parameterType="SearchCriteria" resultMap="menuResultMap">
+		select 
+			  a.menu_code
+			, a.menu_name
+			, a.menu_price
+			, a.category_code
+			, a.orderable_status
+		from tbl_menu a
+		<!-- 카테고리가 포함되면 다른 테이블을 join 해야한다 --> 		
+		<if test="condition == 'category'">
+			JOIN tbl_category b on (a.category_code = b.category_code)
+		</if>
+		where a.orderable_status = 'Y'
+		<if test="condition == 'name'">
+			and a.menu_name like '%' || #{value} || '%'
+		</if>
+		<if test="condition == 'category'">
+			and b.category_name = #{value}
+		</if>
+		order by a.menu_code
+	</select>
+	
+	<select id="searchMenuBySupCategory" resultMap="menuResultMap">
+		select 
+				a.menu_code
+		      , a.menu_name
+		      , a.menu_price
+		      , a.category_code
+		      , a.orderable_status
+      	from tbl_menu a
+      	where a.orderable_status = 'Y'
+      	<choose>
+      		<when test="value == '식사'">
+      			and a.category_code in(4, 5, 6, 7)
+      		</when>
+      		<when test="value == '음료'">
+      			and a.category_code in (8, 9, 10)
+      		</when>
+      		<otherwise>
+      			and a.category_code in (11, 12)
+      		</otherwise>
+      	</choose>		
+      		order by a.menu_code
+	</select>
+	
+	<select id="searchMenuByRandomMenuCode" parameterType="hashmap" resultMap="menuResultMap">
+		select 
+				a.menu_code
+		      , a.menu_name
+		      , a.menu_price
+		      , a.category_code
+		      , a.orderable_status
+      	from tbl_menu a
+      	where a.orderable_status = 'Y'
+      	  and a.menu_code in
+      	  <!-- 
+      	  collection :: hashmap안에 담겨져 있는 key값을 이용해 
+      	   -->
+      	<!-- <foreach collection="randomMenuCodeList" item="menuCode" open="(" separator=", " close=")">
+      		#{menuCode}
+      	</foreach> -->
+      	
+      	<!-- 인자로 값을 전달받지 않고도 static 메소드나 static 필드에 접근 가능 -->
+      	<!-- @full class name :: @static메소드 이름 (randomMethod) -->
+      	
+      	<!-- 
+      		정적 필드 혹은 정적 메소드에 직접 접근해서 사용할 수 있다.
+      		정적 필드 접근 : @full class name @field name
+      		정적 메소드 접근 : @full class name@methodName()
+      	 -->
+      	<foreach collection="@com.kh.section01.xml.Application@createRandomMenuCodeList()"
+item="menuCode" open="(" separator="," close=")">
+      		#{menuCode}
+      	</foreach>
+	</select>
+	
+	
+	
+	<select id="searchMenuByCodeSearchAll" parameterType="SearchCriteria" resultMap="menuResultMap">
+		select 
+				a.menu_code
+		      , a.menu_name
+		      , a.menu_price
+		      , a.category_code
+		      , a.orderable_status
+      	from tbl_menu a
+      	<!-- 아무조건없으면 전체 조회 -->
+      	<if test="condition != null and condition eq 'menuCode'">
+      	<!-- menuCode가 들어가있다면 -->
+      	<where>
+      		a.menu_code = #{value}
+      	</where>
+      	</if>
+	</select>
+	
+	
+	
+	
+	<select id="searchMenuByNameOrCategory" parameterType="hashmap" resultMap="menuResultMap">
+			select 
+				a.menu_code
+		      , a.menu_name
+		      , a.menu_price
+		      , a.category_code
+		      , a.orderable_status
+      	from tbl_menu a
+      	<!-- where 1 = 1 --> <!-- true조건을 준 다음 if문에 and로 시작하게 함 ㅇㅎ.. -->
+      	<!-- update delete엔 좋지 않다. -->
+      <!-- 	<where>
+      	<if test="nameValue != null">
+			and a.menu_name like '%' || #{nameValue} || '%'      		
+      	</if>
+      	<if test="categoryValue != null">
+      		and a.category_code = #{categoryValue}
+      	</if>
+      	</where> -->
+      	
+      	<!-- 문제 발생, 카테고리로 조회하는 경우 where 가 ㅁ붙지않기 때문에 조회불가 -->
+      	<!--  where 태그 사용 -->
+      	<!-- 
+        	where 태그는 앞에 where로 시작하지 않으면 자동으로 where를 붙여준다.
+        	또한 where절 내부에 모두 쿼리문이 추가되지 않는 상황인 경우 where를 무시한다.
+        	단 name 부분에 where를 빼주어야 한다. 빼주지 않으면 where where 두 개가 생기게 된다.
+        	AND나 OR로 시작하게 되면 자동으로 해당 단어를 지워준다.
+         -->
+      	
+      <!-- 	<where>
+      	<if test="nameValue != null">
+		where	and a.menu_name like '%' || #{nameValue} || '%'      		
+      	</if>
+      	<if test="categoryValue != null">
+      		and a.category_code = #{categoryValue}
+      	</if>
+      	</where> -->
+      	
+      	
+      	
+      	<!-- 해결방법2. <trim>태그 이용 -->
+      	<!-- 
+      		조회 조건에 and 혹은 or로 시작하지 않는 다른 문자로 시작하는 경우
+      		where 엘리먼트가 기본적으로 처리하는 기능에 추가 규칙을 정의하기 위한 trim 엘리먼트를 이용할 수 있다
+      		(추가)prefix : 처리 후 엘리먼트의 내용이 있으면 가장 앞에 붙여주는 내용을 기술
+      		(제거)prefixOverrides : 처리 후 앨리먼트 내용 중 가장 앞에 해당하는 문자들이 있다면 자동으로 지워 줌
+      		(추가)suffix : 처리 후 엘리먼트 내에 내용이 있으면 가장 뒤에 붙여줌
+      		(제거)suffixOverrides : 처리 후 엘리먼트의 내용 중 가장 뒤에 해당 문자들이 있다면 자동으로 지워줌
+      	 -->
+      	 <!-- <trim prefix="WHERE" prefixOverrides="AND | OR">
+      	 	<if test="nameValue != null">
+      	 		a.menu_name like '%' || #{nameValue} || '%'    
+      	 	</if>
+      	 	<if test="categoryValue != null">
+      	 		and a.category_code = #{categoryValue}
+      	 	</if>
+      	 </trim> -->
+      	 
+      	 
+      	 <!-- bind ㅇ ㅐㄹ리먼트 
+      	 	: OGNL  표현식을 이용하여 변수를 만든 후 바인딩 한다. :: ongl-> 테스트 조건절, 문법, jstl에서 사용하는 문법들
+      	 	이 때 _parameter가 파라미터로 전달된 object를 의미하며, collection의 경우 get, object의 경우 getter를 이용한다.
+      	 -->
+      	 <trim prefix="WHERE" prefixOverrides="AND | OR">
+      	 <bind name="namePattern" value="'%' + _parameter.get('nameValue') + '%'"/>
+      	 	<if test="nameValue != null">
+      	 		a.menu_name like #{namePattern}  
+      	 	</if>
+      	 	<if test="categoryValue != null">
+      	 		and a.category_code = #{categoryValue}
+      	 	</if>
+      	 </trim>
+      	 
+	</select>
+	
+	
+	
+	<update id="modifyMenu" parameterType="hashmap">
+		<!-- update
+				tbl_menu a
+		   set a.menu_name = #{name}
+		     , a.category_code = #{categoryCode}
+		     , a.orderable_status = #{orderableStatus}
+	     where a.menu_code = #{code} -->
+	     
+	     <!-- 
+	     	문제 발생
+	     	변경할 메뉴 이름을 입력하지 않는 경우 set 키워드가 생략되기 때문에 set 키워드가 누락되어 에러 발생
+	      -->
+	    <!--  update
+	     		tbl_menu a -->
+   	<!-- 	<if test="name != null and name != ''">
+   			set a.menu_name = #{name}
+   		</if>
+   		<if test="categoryCode != null and categoryCode gt 0">
+   			, a.category_code = #{categoryCode}
+   		</if>
+   		<if test="orderableStatus != null and orderableStatus != ''">
+   			, a.orderable_status = #{orderableStatus}
+   		</if>
+   		where a.menu_code = #{code} -->
+   		
+   		<!-- 
+   			1.
+   			set 앨리먼트 사용
+   			set 앨리먼트의 내용이 있을 시 set구문을 자동으로 추가해준다.
+        	단, 주의할 점은 마지막 콤마를 제거해주지 않기 때문에 수업시간에 사용하는 컨벤션을 사용하지 않는 경우 사용한다.
+        	만약 컨벤션대로 작성하면 앞에 콤마는 제거하지 않아 오류 발생한다.
+        	
+        	set 마지막 콤마를 지워줌
+        	set 앨리먼트 같은 경우 앞에 콤마를 찍으면(컨벤션) 지워주지 않는다.
+   		 -->
+   		 <!--  update
+	     		tbl_menu a
+	     <set>
+	     	<if test="name != null and name != ''">
+	     		a.menu_name = #{name},
+	     	</if>
+	     	<if test="categoryCode != null and categoryCode gt 0">
+	     		a.category_code = #{categoryCode},
+	     	</if>
+	     	<if test="orderableStatus != null and orderableStatus != ''">
+	     		a.orderable_status = #{orderableStatus},
+	     	</if>
+	     </set>
+ 		where a.menu_code = #{code} -->
+ 		
+ 		
+ 		   <!-- 
+        	해결방안 2.
+        	<trim> 앨리먼트를 이용하면 코딩 컨벤션대로 작성하더라고 앞에 ,를 지울 수 있도록 설정할 수 있다.
+         -->
+ 		update
+	     		tbl_menu a
+ 		<trim prefix="set" prefixOverrides=",">
+ 			<if test="name != null and name != ''">
+	     		, a.menu_name = #{name}
+	     	</if>
+	     	<if test="categoryCode != null and categoryCode gt 0">
+	     		, a.category_code = #{categoryCode}
+	     	</if>
+	     	<if test="orderableStatus != null and orderableStatus != ''">
+	     		, a.orderable_status = #{orderableStatus}
+	     	</if>
+ 		</trim>
+ 		where a.menu_code = #{code}
+	</update>
+</mapper>
